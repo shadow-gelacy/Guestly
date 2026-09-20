@@ -1,0 +1,223 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Spawner = loadstring(game:HttpGet(
+	"https://raw.githubusercontent.com/RegularVynixu/DOORS-Entity-Spawner-V2/main/init.luau"
+))()
+
+local achievementGiver = loadstring(
+	game:HttpGet(
+		"https://raw.githubusercontent.com/RegularVynixu/Utilities/main/Doors/Custom%20Achievements/Source.lua"
+	)
+)()
+
+local IMAGE_ID = "rbxassetid://99861030954861"
+local achievementGiven = false
+
+local function Create2DEntity(model)
+	if not model then
+		return
+	end
+
+	local root =
+		model:FindFirstChild("HumanoidRootPart")
+		or model.PrimaryPart
+		or model:FindFirstChildWhichIsA("BasePart")
+
+	if not root then
+		warn("Smiletly: no BasePart found")
+		return
+	end
+
+	-- Hide the original model
+	for _, v in ipairs(model:GetDescendants()) do
+		if v:IsA("BasePart") then
+			v.Transparency = 1
+			v.CanCollide = false
+			v.CanTouch = false
+			v.CanQuery = false
+		elseif v:IsA("Decal") or v:IsA("Texture") then
+			v.Transparency = 1
+		end
+	end
+
+	-- 2D image
+	local gui = Instance.new("SurfaceGui")
+	gui.Name = "Smiletly2D"
+	gui.Adornee = root
+	gui.Face = Enum.NormalId.Front
+
+	-- Wall occlusion
+	gui.AlwaysOnTop = false
+	gui.LightInfluence = 0
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 100
+	gui.Parent = root
+
+	local image = Instance.new("ImageLabel")
+	image.Name = "SmiletlyImage"
+	image.BackgroundTransparency = 1
+	image.Size = UDim2.fromScale(1, 1)
+	image.Image = IMAGE_ID
+	image.ScaleType = Enum.ScaleType.Fit
+	image.Parent = gui
+end
+
+local function GiveAchievement()
+	if achievementGiven then
+		return
+	end
+
+	achievementGiven = true
+
+	pcall(function()
+		achievementGiver({
+			Title = "how why?",
+			Desc = "Don't leave hiding spot",
+			Reason = "Encounter smiletly.",
+			Image = IMAGE_ID
+		})
+	end)
+end
+
+local function WaitForDespawn(model)
+	if not model then
+		GiveAchievement()
+		return
+	end
+
+	local start = tick()
+
+	while model.Parent and tick() - start < 10 do
+		task.wait(0.05)
+	end
+
+	if not model.Parent then
+		GiveAchievement()
+	end
+end
+
+local entity = Spawner:Create({
+	Entity = {
+		Name = "Smiletly",
+		Asset = "rbxassetid://16618965725",
+		HeightOffset = 2
+	},
+
+	Movement = {
+		Speed = 400,
+		Delay = 16,
+		Reversed = false
+	},
+
+	Damage = {
+		Enabled = true,
+		Range = 45,
+		Amount = 367,
+		IgnoreHiding = false
+	},
+
+	Lights = {
+		Flicker = {
+			Enabled = true,
+			Duration = 15
+		},
+		Shatter = true,
+		Repair = false
+	},
+
+	Earthquake = {
+		Enabled = false
+	},
+
+	CameraShake = {
+		Enabled = true,
+		Values = {30, 57, 0.1, 0.4},
+		Range = 100
+	},
+
+	Rebounding = {
+		Enabled = true,
+		Type = "Ambush",
+		Min = 8,
+		Max = 13,
+		Delay = 0.5
+	},
+
+	Crucifixion = {
+		Type = "Guiding",
+		Enabled = true,
+		Range = 40,
+		Resist = false,
+		Break = true
+	},
+
+	Death = {
+		Type = "Guiding",
+		Hints = {
+			"ok",
+			"it like smiler but",
+			"THE GUESTLY LIGHT",
+			"byaaaaa"
+		},
+		Cause = "smiletly"
+	}
+})
+
+if not entity then
+	warn("Smiletly: failed to create entity")
+	return
+end
+
+entity:SetCallback("OnSpawned", function()
+	print("Smiletly spawned")
+
+	task.spawn(function()
+		for _ = 1, 50 do
+			local model = entity.Model
+
+			if model and model.Parent then
+				task.wait(0.2)
+				Create2DEntity(model)
+				return
+			end
+
+			task.wait(0.1)
+		end
+
+		warn("Smiletly: model not found")
+	end)
+end)
+
+entity:SetCallback("OnStartMoving", function()
+	print("Smiletly started moving")
+end)
+
+entity:SetCallback("OnEnterRoom", function(room, firstTime)
+end)
+
+entity:SetCallback("OnLookAt", function(isInSight)
+end)
+
+entity:SetCallback("OnDamagePlayer", function(newHealth)
+	task.spawn(function()
+		local model = entity.Model
+
+		if not model then
+			GiveAchievement()
+			return
+		end
+
+		WaitForDespawn(model)
+	end)
+end)
+
+entity:SetCallback("OnDespawning", function()
+	print("Smiletly despawning")
+end)
+
+entity:SetCallback("OnDespawned", function()
+	task.wait(0.1)
+	GiveAchievement()
+end)
+
+entity:Run()
